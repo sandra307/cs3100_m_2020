@@ -25,10 +25,13 @@ type (_,_) list =
   | Nil  : ('a, z ) list
   | Cons : 'a * ('a,'n) list -> ('a, 'n s) list
 
-
 type ('a, 'n) list =
   | Nil
   | Cons of 'a * ('a, 'n) list
+
+
+
+
   
   let  cross_v_l v l =
   let rec cross1 v l=
@@ -51,7 +54,7 @@ let rec append l1 l2 =
 
 type (_,_,_) plus =
   | PlusZero  : (z,'n,'n) plus
-  | PlusSucc : ('m, 'n s, 'o s) plus -> ('m s, 'n, 'o s) plus
+  | PlusSucc : ('m, 'n , 'o  ) plus -> ('m s, 'n, 'o s) plus
 
   
 
@@ -64,16 +67,28 @@ let zero_plus_zero_eq_zero : (z,z,z) plus = PlusZero
 (* 5 points *)
 let two_plus_three_eq_five : (z s s, z s s s, z s s s s s) plus = PlusSucc (PlusSucc PlusZero)
 
-let rec append : type m n o. (m,n,o) plus -> ('a, m) list -> ('a, n) list -> ('a, o) list =
+type ('a, 'n) list =
+  | Nil
+  | Cons : 'a * ('a, 'n) list->('a,'n s)list
 
 
- 
+ let rec append : type m n o. (m, n, o) plus -> ('a, m) list -> ('a, n) list -> ('a, o) list =
+fun u l1 l2->
+match u, l1 with
+PlusZero ,Nil->l2|
+PlusSucc s,Cons(x,xs)->Cons(x,append s xs l2) |
+PlusSucc _,Nil->assert false
+
+
+
+
 
 (* 10 points *)
 assert (append zero_plus_zero_eq_zero Nil Nil = Nil);
 assert (append two_plus_three_eq_five (Cons (1,Cons(2,Nil))) (Cons (3, Cons(4,Cons(5,Nil)))) 
         = Cons (1,Cons(2,Cons(3,Cons(4,Cons(5,Nil))))))
         
+
 
 
 
@@ -84,19 +99,15 @@ type (_,_,_) mult =
 
 
 
-
 (* 5 points *)
 let zero_mult_two_eq_zero : (z, z s s, z) mult = MultZero
 
 (* 5 points *)
 let one_mult_two_eq_two : (z s, z s s, z s s) mult = MultSucc (PlusSucc (PlusSucc PlusZero), MultZero)
 
-let two_mult_two_eq_four : (z s s, z s s, z s s s s) mult =MultSucc(PlusSucc(PlusSucc(PlusSucc(PlusSucc PlusZero))),MultSucc(PlusSucc))
+let two_mult_two_eq_four : (z s s, z s s, z s s s s) mult = 
 
-
-let two_mult_one_eq_two : (z s s, z s, z s s) mult =
-
-  
+let two_mult_one_eq_two : (z s s, z s, z s s) mult = 
 
 (* 10 points *)
 let _two_mult_two_eq_four : (z s s, z s s, z s s s s) mult = two_mult_two_eq_four in
@@ -114,7 +125,9 @@ assert (cross one_mult_two_eq_two (Cons("a", Nil)) (Cons (1,Cons(2,Nil))) =
 let rec zip : type n. ('a,n) list -> ('b,n) list -> ('a *'b, n) list =
 fun l1 l2->match l1, l2 with
 |Nil,Nil->Nil|
-Cons(x,xs),Cons(y,ys)->Cons((x,y),zip xs ys)
+Cons(x,xs),Cons(y,ys)->Cons((x,y),zip xs ys)|
+(Cons (_, _), Nil)->failwith "list of unequal length"|
+(Nil,Cons(_,_))->failwith "list of unequal length"
 
 (* 10 points *)
 assert (zip (Cons(1,Cons(2,Nil))) (Cons("a",Cons("b",Nil))) = 
