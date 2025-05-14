@@ -61,17 +61,7 @@ let fresh s =
 let a = fresh "a"
 let b = fresh "b"
 
-open Syntax
 
-let parse_string = Lambda_parse.parse_string
-let string_of_expr = string_of_expr
-
-let _ = parse_string "(\\x.x) (\\y.y)"
-let _ = string_of_expr (App (Var "x",Lam("y",App(Var "y", Var "x"))))
-type expr = 
-  | Var of string
-  | Lam of string * expr
-  | App of expr * expr;;
 let rec rd l=match l with
 []->[]|
 h::t->if List.mem h t then rd t else h::rd t;;
@@ -85,7 +75,22 @@ App(first,second)->rd(free_variables first@free_variables second);;
 assert (free_variables (parse_string "\\x.x") = []);
 assert (free_variables (parse_string "\\x.y") = ["y"])
 
+let rec rename_var e o n=
+match e with 
+Var x->if x=o then Var n else Var x|
+Lam(x,y)->if x=o then Lam(o,rename_var y o n) else Lam(x,rename_var y o n)|
+App(x,y)->App(rename_var x o n,rename_var y o n)
+
+
 let rec substitute expr a b =
+match expr with 
+Var x->if x=a then b else Var x|
+Lam(x,y)->if x=a then Lam(x,y) 
+else if not(List.mem x (free_variables b))then Lam(x,substitute y a b)
+else let x'=fresh x in
+let y'=rename_var y x x' in
+Lam(x',substitute y' a b)|
+App(fst,snd)->App(substitute fst a b,substitute snd a b)
 
 
 (* 20 points *)
@@ -99,7 +104,31 @@ assert (alpha_equiv
           (substitute (parse_string "\\x.y") "y" (parse_string "x"))
           (parse_string "λx0.x"))
 
+let is_value e =
+  match e with
+  | Lam (_, _) -> true
+  | _ -> false
+
 let rec reduce_cbv e =
+
+ match e with
+ App(Lam(x,b),v) when is_value v->
+ Some(substitute b x v)
+| App(u,f) when not(is_value u)->
+ begin
+ match reduce_cbv u with
+ Some e'->Some(App(e',f))|
+ None->None
+ end
+ |App(v,f) when (is_value v)&&not(is_value f)->
+ begin
+ match reduce_cbv f with
+ Some f'->Some(App(v,f'))|
+ None->None
+ end
+ |_->None
+ 
+ 
  
 
 (* 20 points *)
@@ -123,7 +152,16 @@ end;
 assert (reduce_cbv (parse_string "x y z") = None)
 
 
-let rec reduce_cbn e =
+let rec reduce_cbn e =match e with 
+App(Lam(x,b),v)->Some(substitute b x v)|
+App(r,u)->begin 
+match reduce_cbn r with
+Some(r')->Some(App(r',u))|
+None->None
+end
+|_->None
+
+
 
 
 (* 20 points *)
@@ -153,7 +191,22 @@ assert (reduce_cbn (parse_string "x y z") = None)
 
 
 let rec reduce_normal e =
-
+  match e with
+  | App (Lam (x, b), v) ->
+      
+      Some (substitute b x v)
+  | App (e1, e2) ->
+      
+      begin
+        match reduce_normal e1 with
+        | Some e1' -> Some (App (e1', e2))
+        | None ->
+            match reduce_normal e2 with
+            | Some e2' -> Some (App (e1, e2'))
+            | None -> None
+      end
+  | Var _ -> None
+  | Lam _ -> None
 
 (* 20 points *)
 begin match reduce_normal (parse_string "(\\x.x) ((\\x.x) (\\z.(\\x.x) z))") with
@@ -220,3 +273,5 @@ print_endline "";
 assert (alpha_equiv (eval_normal (App (App (mult, one), three))) three);
 print_endline "";
 assert (alpha_equiv (eval_normal (App (App (mult, zero), three))) zero)
+
+
