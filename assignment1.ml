@@ -30,14 +30,21 @@ if num2 < num1 then raise IncorrectRange else if num2=num1 then num1::[]else    
 assert (range 2 5 = [2;3;4;5])
 
 let rec zipwith f l1 l2 =
-if l1=[]then [] else if l2=[] then [] else match l1 with h1::t1->match l2 with h2::t2->(f h1 h2)::zipwith f t1 t2;;
+match l1,l2 with
+h1::t1,h2::t2->f h1 h2::zipwith f t1 t2|
+_,_->[]
  
 
 (* 10 points *)
 assert (zipwith (+) [1;2;3] [4;5] = [5;7]) 
 
+let rec insert_into_buckets eq x buckets =
+ match buckets with
+ []->[[x]]|
+ h::t->if eq x (List.hd h) then (h@[x])::t else h::insert_into_buckets eq x t
+
 let buckets p l =
- 
+List.fold_left (fun acc x -> insert_into_buckets p x acc) [] l
 
 (* 20 points *)
 assert (buckets (=) [1;2;3;4] = [[1];[2];[3];[4]])
@@ -69,34 +76,25 @@ assert (flatten ([[1;2];[3;4]]) = [1;2;3;4])
 
 type 'a tree = Leaf | Node of 'a tree * 'a * 'a tree
 
+
+
 let rec fold_inorder f acc t =match t with 
 Leaf->acc|
 Node(l,v,r)->let left=fold_inorder f acc l in
 let value=f left v in
 fold_inorder f value r;;
 
-            
-            
-            
+let rec fold_preorder f acc t=match t with
+Leaf->acc|
+Node(l,v,r)->let value=f acc v in
+let left=fold_preorder f value l in
+fold_preorder f left r
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+let rec fold_postorder f acc t=match t with 
+Leaf->acc|
+Node(l,v,r)->let left=fold_postorder f acc l in
+let right=fold_postorder f left r in
+f right v
 
 (* 15 points *)
 assert (fold_inorder (fun acc x -> acc @ [x]) [] (Node (Node (Leaf,1,Leaf), 2, Node (Leaf,3,Leaf))) = [1;2;3]) 
