@@ -41,41 +41,34 @@ end
 
 module Ref_monad (V : sig type t end) : REF_MONAD with type value = V.t = struct
   type value = V.t
-  type ref = int  (* Just an index into the heap *)
   
   type 'a t = 
-    int * (int, value) FHeap.t ->  (* Takes counter + heap *)
-    int * (int, value) FHeap.t * 'a  (* Returns updated counter, heap, and result *)
+   (int*(int,value)FHeap.t)->(int*(int,value)FHeap.t*'a)
+type ref= int
 
-  (* return: Does not modify state, just returns a value *)
-  let return x = fun state -> (state, x)
+  let return x = fun(c,h)->(c,h,x)
+  
+  let (let*) m f = fun s->let(c,h,x)=m s in f x(c,h)
+  
+  
+  let mk_ref v =fun(c,h)->
+  let nr=c in 
+  let nh=FHeap.set h nr v in
+  (c+1,nh,nr)
 
-  (* bind: Threads state implicitly *)
-  let (let*) m f = fun state ->
-    let (new_state, x) = m state in
-    f x new_state
 
-  (* mk_ref: Creates a new reference *)
-  let mk_ref v = fun (counter, heap) ->
-    let new_ref = counter in
-    let new_heap = FHeap.set heap new_ref v in
-    ((counter + 1, new_heap), new_ref)  (* Returns new reference *)
+  let (!) r =fun(c,h)->
+  match FHeap.get h r with
+  Some v->(c,h,v)|
+  None->failwith "Invalid ref ID"
 
-  (* Read value from reference *)
-  let (!) r = fun (counter, heap) ->
-    match FHeap.get heap r with
-    | Some v -> ((counter, heap), v)
-    | None -> failwith "Invalid reference"
 
-  (* Write new value to reference *)
-  let (:=) r v = fun (counter, heap) ->
-    let new_heap = FHeap.set heap r v in
-    ((counter, new_heap), ())
+  let (:=) r v = fun(c,h)->let nh=FHeap.set h r v in (c,nh,())
 
-  (* Run state monad with empty heap and counter=0 *)
+ 
   let run_state m =
-    let (_, _, result) = m (0, FHeap.empty_heap) in
-    result
+    let (_, _, r) = m (0, FHeap.empty_heap) in
+    r
 end
 
 
@@ -162,15 +155,42 @@ module type POLY_REF_MONAD = sig
   val run_state : 'a t -> 'a
 end
 
-module Poly_ref_monad : POLY_REF_MONAD = struct
+
+
+module Poly_ref_monad= struct
   type 'a ref = int * 'a Univ.packer
-  type 'a t = int * (int, Univ.t) FHeap.t -> int * (int, Univ.t) FHeap.t * 'a
+  type 'a t = (int * (int, Univ.t) FHeap.t) -> (int * (int, Univ.t) FHeap.t * 'a)
 
-  (* Implement the missing functions *)
+  let return x = fun (c, h) -> (c, h, x)
 
-(* YOUR CODE HERE *)
-raise (Failure "Not implemented")
+  let (let*) m f = fun s ->
+    let (c, h, x) = m s in
+    f x (c, h)
+
+  let mk_ref (type a) v = fun (c, h) ->
+    let p = Univ.mk () in
+    let nh = FHeap.set h c (p.pack v) in
+    (c + 1, nh, (c, p))
+
+  let (!) (r : 'a ref) : 'a t = fun (c, h) ->
+    let (id, p) = r in
+    match FHeap.get h id with
+    | Some uv -> 
+        (match p.unpack uv with
+         | Some v -> (c, h, v)
+         | None -> failwith "Type error")
+    | None -> failwith "Invalid reference"
+
+  let (:=) (r : 'a ref) v  = fun (c, h) ->
+    let (id, p) = r in
+    let nh = FHeap.set h id (p.pack v) in
+    (c, nh, ())
+
+  let run_state m =
+    let (_, _, r) = m (0, FHeap.empty_heap) in
+    r
 end
+
 
 (* 10 points *)
 let module M = struct
